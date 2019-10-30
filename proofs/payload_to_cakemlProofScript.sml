@@ -1,37 +1,19 @@
-open preamble
-     endpoint_to_payloadTheory (* for compile_message only*)
-     payloadLangTheory payload_to_cakemlTheory
-     evaluateTheory terminationTheory ml_translatorTheory ml_progTheory evaluatePropsTheory
-     namespaceTheory
-     semanticPrimitivesTheory
-     ffiTheory
-     comms_ffi_modelTheory
-     comms_ffi_propsTheory
-     comms_ffi_eqTheory
-     payloadSemanticsTheory
-     evaluate_rwLib
-     state_tacticLib
-     evaluate_toolsTheory
-     ckExp_EquivTheory
-     optionTheory
+open preamble;
+open optionTheory
      rich_listTheory;
+open payloadLangTheory payloadSemanticsTheory payload_to_cakemlTheory;
+open comms_ffi_modelTheory
+     comms_ffi_propsTheory
+     comms_ffi_eqTheory;
+open evaluate_toolsTheory
+     ckExp_EquivTheory;
+open evaluate_rwLib
+     state_tacticLib;
+open evaluateTheory terminationTheory ml_translatorTheory
+     ml_progTheory evaluatePropsTheory namespaceTheory
+     semanticPrimitivesTheory ffiTheory;
 
 val _ = new_theory "payload_to_cakemlProof";
-
-val JSPEC_THEN =
-  fn spTr => fn nxTc => fn spTh => 
-    FIRST[qspec_then spTr nxTc spTh, Q.ISPEC_THEN spTr nxTc spTh];
-
-fun JSPECL_THEN []            = (fn nxTc => (fn spTh => nxTc spTh))
-  | JSPECL_THEN (spTr::spTrs) =
-    (fn nxTc =>
-      (fn spTh =>
-        let
-          val recFunc = (JSPECL_THEN spTrs nxTc)
-        in
-          JSPEC_THEN spTr recFunc spTh
-        end)
-    ); 
 
 Definition has_v_def:
   has_v env n cfty f =
@@ -737,7 +719,7 @@ Proof
       ‘DROP n l = (EL n l)::(DROP (SUC n) l)’
         by (irule DROP_CONS_EL >> fs[])
       >- rw[Once SPLITP]
-      >- (first_x_assum (JSPECL_THEN [‘l’,‘SUC n’] assume_tac) >>
+      >- (first_x_assum (qspecl_then [‘l’,‘SUC n’] assume_tac) >>
           rfs[] >>
           Cases_on ‘SUC n < LENGTH l’
           >- (fs[] >> rw[Once SPLITP])
@@ -842,9 +824,13 @@ Proof
                                              senv [sexp] =
                                       (empty_state with <| clock := ck2; refs := _ |>,Rval[ulv])’ >>
           fs[] >>
-          qmatch_asmsub_abbrev_tac ‘evaluate _ _ _ = (empty_state with <|clock := ck2; refs := s1.refs ++ ex_refs1 ++ ex_refs2|>,_)’ >>
+          qmatch_asmsub_abbrev_tac ‘evaluate _ _ _ = (empty_state with <|clock := ck2;
+                                                                         refs := s1.refs ++ ex_refs1
+                                                                                         ++ ex_refs2
+                                                                         |>,
+                                                      _)’ >>
           MAP_EVERY qexists_tac [‘ck1’,‘ck2 + s2.clock’,‘ex_refs1 ++ ex_refs2’,‘ulv’] >>
-          JSPECL_THEN [‘s2 with refs := s1.refs ++ ex_refs1 ++ ex_refs2’,
+          qspecl_then [‘s2 with refs := s1.refs ++ ex_refs1 ++ ex_refs2’,
                        ‘senv’,‘sexp’,‘ck1’,‘ck2’,‘[]’,‘ulv’] strip_assume_tac
                        evaluate_generalise >>
           rfs[])
@@ -915,9 +901,13 @@ Proof
                                              senv [sexp] =
                                       (empty_state with <| clock := ck2; refs := _ |>,Rval[ulv])’ >>
           fs[] >>
-          qmatch_asmsub_abbrev_tac ‘evaluate _ _ _ = (empty_state with <|clock := ck2; refs := s1.refs ++ ex_refs1 ++ ex_refs2|>,_)’ >>
+          qmatch_asmsub_abbrev_tac ‘evaluate _ _ _ = (empty_state with <|clock := ck2; 
+                                                                         refs := s1.refs ++ ex_refs1
+                                                                                         ++ ex_refs2
+                                                                        |>,
+                                                      _)’ >>
           MAP_EVERY qexists_tac [‘ck1’,‘ck2 + s2.clock’,‘ex_refs1 ++ ex_refs2’,‘ulv’] >>
-          JSPECL_THEN [‘s2 with refs := s1.refs ++ ex_refs1 ++ ex_refs2’,
+          qspecl_then [‘s2 with refs := s1.refs ++ ex_refs1 ++ ex_refs2’,
                        ‘senv’,‘sexp’,‘ck1’,‘ck2’,‘[]’,‘ulv’] strip_assume_tac
                        evaluate_generalise >>
           rfs[])
@@ -926,7 +916,7 @@ Proof
             by (CCONTR_TAC >> fs eval_sl) >>
           intLib.COOPER_TAC))
   >- (qmatch_goalsub_abbrev_tac ‘evaluate (SE with clock := _) EE’ >>
-      JSPECL_THEN [‘EE’,‘lnum’,‘SE’,‘6w’,‘t’] strip_assume_tac find_one_correct >>
+      qspecl_then [‘EE’,‘lnum’,‘SE’,‘6w’,‘t’] strip_assume_tac find_one_correct >>
       qunabbrev_tac ‘SE’ >> qunabbrev_tac ‘EE’ >> rfs[store_lookup_def] >>
       drule_then strip_assume_tac evaluate_add_to_clock >>
       fs trans_sl >>
@@ -988,7 +978,7 @@ Proof
                                                 <| clock := Ack2;
                                                    refs := _|>,
                                               Rval[vE])’ >>
-          JSPECL_THEN [‘s2c’,‘envE’,‘expE’,‘Ack1’,‘Ack2’,‘[]’,‘vE’]
+          qspecl_then [‘s2c’,‘envE’,‘expE’,‘Ack1’,‘Ack2’,‘[]’,‘vE’]
                       strip_assume_tac evaluate_generalise >>
           qunabbrev_tac ‘s2c’ >> rfs[] >>
           Q.REFINE_EXISTS_TAC ‘Ack1 + ck1f’ >>
@@ -1035,6 +1025,20 @@ Proof
   metis_tac[LUPDATE_SAME]
 QED
 
+Definition compile_message_def:
+  compile_message conf d =
+   if conf.payload_size = 0 then [] (*for termination, shouldn't happen*)
+   else
+     if final(pad conf d) then
+       [pad conf d]
+     else pad conf d :: compile_message conf (DROP conf.payload_size d)
+Termination
+  wf_rel_tac ‘inv_image ($<) (λ(conf,d). if conf.payload_size = 0 then 0 else LENGTH d)’ >>
+  rpt strip_tac >>
+  fs[LENGTH_DROP,final_def,pad_def] >>
+  every_case_tac >> fs[final_def]
+End
+
 Definition send_events_def:
   send_events conf dest d =
   MAP (λm. IO_event "send" dest (ZIP (m,m)))(compile_message conf d)
@@ -1062,7 +1066,7 @@ Proof
   ho_match_mp_tac compile_message_ind>>
   rpt strip_tac >>
   ntac 3 (simp[Once evaluate_def]) >>
-  drule_then (JSPEC_THEN ‘s’ strip_assume_tac) ck_equiv_hol_apply >>
+  drule_then (qspec_then ‘s’ strip_assume_tac) ck_equiv_hol_apply >>
   Q.REFINE_EXISTS_TAC ‘bc1 + ck1’ >>
   simp[do_opapp_def] >> 
   first_x_assum (K ALL_TAC) >>
@@ -1115,7 +1119,7 @@ Proof
             simp[Abbr ‘env2’,ml_progTheory.nsLookup_nsBind_compute])
         >- (irule ck_equiv_hol_Var >>
            fs[env_asm_def,in_module_def,has_v_def])) >>
-  drule_then (JSPEC_THEN ‘s2’ strip_assume_tac) ck_equiv_hol_apply >>
+  drule_then (qspec_then ‘s2’ strip_assume_tac) ck_equiv_hol_apply >>
   rename [‘∀dc. evaluate (s2 with clock := bc1 + dc) _ _ =
                (s2 with <|clock:= dc + bc2; refs := s2.refs ++ drefsL|>,
                 Rval [cVL])’] >>
@@ -1155,7 +1159,7 @@ Proof
                 >- (irule ck_equiv_hol_Var >>
                     fs[env_asm_def,in_module_def,has_v_def]))) >>
       unite_nums "dc" >>
-      drule_then (JSPEC_THEN
+      drule_then (qspec_then
                  ‘s2 with refs := s2.refs ++ drefsL’
               strip_assume_tac) ck_equiv_hol_apply >>
       rpt (qpat_x_assum ‘ck_equiv_hol _ _ _ _’ (K ALL_TAC)) >>
@@ -1167,7 +1171,7 @@ Proof
       simp[] >>
       first_x_assum (K ALL_TAC) >>
       qmatch_goalsub_abbrev_tac ‘evaluate (s3 with clock := _) env3’ >>
-      last_x_assum (JSPECL_THEN [‘env3’,‘env'’,‘Var (Short "x")’,‘s3’,‘stpred’,‘dest’] strip_assume_tac) >>
+      last_x_assum (qspecl_then [‘env3’,‘env'’,‘Var (Short "x")’,‘s3’,‘stpred’,‘dest’] strip_assume_tac) >>
       rfs[] >>
       ‘nsLookup env3.v (Short "sendloop") = 
        SOME (Recclosure env' (sendloop conf (MAP (CHR ∘ w2n) dest))
@@ -1684,7 +1688,7 @@ Proof
   first_x_assum (K ALL_TAC) >>
   last_x_assum irule >>
   qpat_assum ‘ffi_accepts_rel _ _ _’ (assume_tac o (REWRITE_RULE [ffi_accepts_rel_def])) >>
-  first_x_assum (JSPECL_THEN [‘<|oracle := comms_ffi_oracle conf;
+  first_x_assum (qspecl_then [‘<|oracle := comms_ffi_oracle conf;
                                ffi_state := ckFSt;
                                io_events := ARB|>’,
                                ‘s’,‘l’,‘MAP FST d’]
@@ -1742,7 +1746,7 @@ Proof
   first_x_assum (K ALL_TAC) >>
   last_x_assum irule >>
   qpat_assum ‘ffi_accepts_rel _ _ _’ (assume_tac o (REWRITE_RULE [ffi_accepts_rel_def])) >>
-  first_x_assum (JSPECL_THEN [‘<|oracle := comms_ffi_oracle conf;
+  first_x_assum (qspecl_then [‘<|oracle := comms_ffi_oracle conf;
                                ffi_state := ckFSt;
                                io_events := ARB|>’,
                                ‘s’,‘l’,‘MAP FST d’]
@@ -1837,7 +1841,7 @@ Proof
         rw[] >> qmatch_goalsub_rename_tac ‘strans conf si _ _’ >>
         SELECT_ELIM_TAC >> rw[] >>
         fs[ffi_accepts_rel_def,comms_ffi_oracle_def,ffi_send_def,some_def] >>
-        first_x_assum (JSPECL_THEN [‘<|oracle := comms_ffi_oracle conf;
+        first_x_assum (qspecl_then [‘<|oracle := comms_ffi_oracle conf;
                                        ffi_state := si;
                                        io_events := ARB|>’,
                                        ‘"send"’,‘l’,‘MAP FST data’]
@@ -1856,7 +1860,7 @@ Proof
         suffices_by rw[] >>
       rw[] >> SELECT_ELIM_TAC >> rw[] >>
       fs[ffi_accepts_rel_def] >>
-      first_x_assum (JSPECL_THEN [‘<|oracle := comms_ffi_oracle conf;
+      first_x_assum (qspecl_then [‘<|oracle := comms_ffi_oracle conf;
                                      ffi_state := si;
                                      io_events := ARB|>’,
                                      ‘s’,‘l’,‘MAP FST data’]
@@ -1924,9 +1928,9 @@ Proof
       Cases_on ‘hvs’ >> fs[] >>
       rename1 ‘LENGTH cvs = LENGTH hvs’ >>
       qmatch_goalsub_rename_tac ‘LIST_TYPE _ (hv::hvs) _’ >>
-      first_x_assum (JSPECL_THEN [‘env’,‘conf’,‘hvs’] strip_assume_tac) >>
+      first_x_assum (qspecl_then [‘env’,‘conf’,‘hvs’] strip_assume_tac) >>
       rfs[] >> qmatch_goalsub_abbrev_tac ‘evaluate (cls with clock := _) _ _’ >>
-      drule_then (JSPEC_THEN ‘cls’ strip_assume_tac) ck_equiv_hol_apply >>
+      drule_then (qspec_then ‘cls’ strip_assume_tac) ck_equiv_hol_apply >>
       rename1
       ‘∀dc.
         evaluate (cls with clock := bc1_l + dc) env [convList conf cvs] =
@@ -1937,7 +1941,7 @@ Proof
       first_x_assum (K ALL_TAC) >> qunabbrev_tac ‘cls’ >> simp[] >>
       qmatch_goalsub_abbrev_tac ‘evaluate (cls with clock := _) _ _’ >>
       qpat_x_assum ‘ck_equiv_hol _ _ (convList _ _) _’ (K ALL_TAC) >>
-      drule_then (JSPEC_THEN ‘cls’ strip_assume_tac) ck_equiv_hol_apply >>
+      drule_then (qspec_then ‘cls’ strip_assume_tac) ck_equiv_hol_apply >>
       rename1
       ‘∀dc.
         evaluate (cls with clock := abc1_h + dc) env [h] =
@@ -2007,22 +2011,6 @@ Proof
   rw[]
 QED
 
-Theorem forward_correctness:
-  ∀conf p pSt1 pCd1 L pSt2 pCd2
-        vs1 cEnv1 cSt1 vs2 cEnv2 cSt2.
-    trans conf (NEndpoint p pSt1 pCd1) L (NEndpoint p pSt2 pCd2) ∧
-    cpEval_valid conf p cEnv1 pSt1 pCd1 vs1 cSt1 ∧
-    cpEval_valid conf p cEnv2 pSt2 pCd2 vs2 cSt2 ∧
-    cpFFI_valid conf pSt1 pSt2 cSt1.ffi.ffi_state cSt2.ffi.ffi_state L ⇒
-    ∃mc. cEval_equiv conf
-          (evaluate (cSt1 with clock := mc) cEnv1
-                    [compile_endpoint conf vs1 pCd1])
-          (evaluate (cSt2 with clock := mc) cEnv2
-                    [compile_endpoint conf vs2 pCd2])
-Proof
-  cheat
-QED
-
 Theorem ffi_irrel:
   ∀conf cpNum cEnv pSt pCd vs cSt1 cSt2.
     cpEval_valid conf cpNum cEnv pSt pCd vs cSt1 ∧
@@ -2046,7 +2034,7 @@ Proof
             qexists_tac ‘LIST_TYPE ^WORD8’ >>
             rw[] >>irule ck_equiv_hol_Var
             >> fs[cpEval_valid_def,env_asm_def,has_v_def,sem_env_cor_def]) >>
-      drule_then (JSPEC_THEN ‘cSt2’ strip_assume_tac) ck_equiv_hol_apply >>
+      drule_then (qspec_then ‘cSt2’ strip_assume_tac) ck_equiv_hol_apply >>
       rename1 ‘∀dc.
                 evaluate (cSt2 with clock := bc1_2 + dc) cEnv
                   [App Opapp [Var conf.length; Var (Short (ps2cs s))]] =
@@ -2055,7 +2043,7 @@ Proof
       Q.REFINE_EXISTS_TAC ‘bc1_2 + mc’ >>
       simp[] >>
       first_x_assum (K ALL_TAC) >>
-      drule_then (JSPEC_THEN ‘cSt1’ strip_assume_tac) ck_equiv_hol_apply >>
+      drule_then (qspec_then ‘cSt1’ strip_assume_tac) ck_equiv_hol_apply >>
       rename1 ‘∀dc.
                 evaluate (cSt1 with clock := bc1_1 + dc) cEnv
                   [App Opapp [Var conf.length; Var (Short (ps2cs s))]] =
@@ -2127,7 +2115,7 @@ Proof
                                 rw[sendloop_def] >> fs[cpEval_valid_def,env_asm_def,in_module_def]) >>
                           first_x_assum SUBST1_TAC >>    
                           fs[cpEval_valid_def,env_asm_def,has_v_def]))) >>
-          JSPECL_THEN [‘conf’,‘combin$C DROP ha_s n’,‘cEnvBR’,‘cEnv’,‘Drop_Exp’,‘cSt1’,
+          qspecl_then [‘conf’,‘combin$C DROP ha_s n’,‘cEnvBR’,‘cEnv’,‘Drop_Exp’,‘cSt1’,
                        ‘valid_send_dest l’,‘l’] strip_assume_tac sendloop_correct >>
           ‘env_asm cEnv conf’
             by fs[cpEval_valid_def] >>
@@ -2155,7 +2143,7 @@ Proof
               fs[] >> first_x_assum (K ALL_TAC) >>
               unite_nums "dc1" >>
               unite_nums "dc2" >>
-              JSPECL_THEN [‘conf’,‘combin$C DROP ha_s n’,‘cEnvBR’,‘cEnv’,‘Drop_Exp’,‘cSt2’,
+              qspecl_then [‘conf’,‘combin$C DROP ha_s n’,‘cEnvBR’,‘cEnv’,‘Drop_Exp’,‘cSt2’,
                        ‘valid_send_dest l’,‘l’] strip_assume_tac sendloop_correct >>
               rfs[] >>
               ‘valid_send_dest l cSt2.ffi.ffi_state’
@@ -2173,7 +2161,7 @@ Proof
               qmatch_goalsub_abbrev_tac ‘∃mc. cEval_equiv conf
                                         (evaluate (cSt1M with clock := dc1 + mc) cEnv _)
                                         (evaluate (cSt2M with clock := dc2 + mc) cEnv _)’ >>
-              last_x_assum (JSPECL_THEN [‘conf’,‘cpNum’,‘cEnv’,‘pSt’,‘vs’,
+              last_x_assum (qspecl_then [‘conf’,‘cpNum’,‘cEnv’,‘pSt’,‘vs’,
                                          ‘cSt1M’,‘cSt2M’] strip_assume_tac) >>
               ‘cpEval_valid conf cpNum cEnv pSt pCd vs cSt1M’
                 by (qunabbrev_tac ‘cSt1M’ >> rw[cpEval_valid_def] >>
@@ -2206,7 +2194,7 @@ Proof
               qexists_tac ‘valid_send_dest l’ >> simp[])
           >- (qpat_x_assum ‘valid_send_dest _ _ ⇒ _’ (K ALL_TAC) >>
               rw eval_sl >>
-              drule_then (JSPEC_THEN ‘cSt1’ strip_assume_tac) ck_equiv_hol_apply >>
+              drule_then (qspec_then ‘cSt1’ strip_assume_tac) ck_equiv_hol_apply >>
               rename [‘∀dc. evaluate (cSt1 with clock := bc1_1 + dc) cEnvBR _ =
                                (cSt1 with <|clock := dc + bc2_1; refs := cSt1.refs ++ drefsD1|>,
                                 Rval [cVD1])’] >>
@@ -2217,7 +2205,7 @@ Proof
               reverse (rw[ADD1,dec_clock_def]) >> 
               unite_nums "dc1" >>
               unite_nums "dc2" >>
-              drule_then (JSPEC_THEN ‘cSt2’ strip_assume_tac) ck_equiv_hol_apply >>
+              drule_then (qspec_then ‘cSt2’ strip_assume_tac) ck_equiv_hol_apply >>
               rename [‘∀dc. evaluate (cSt2 with clock := bc1_2 + dc) cEnvBR _ =
                                (cSt2 with <|clock := dc + bc2_2; refs := cSt2.refs ++ drefsD2|>,
                                 Rval [cVD2])’] >>
@@ -2259,7 +2247,7 @@ Proof
               (* Evaluate padv *)
               qmatch_goalsub_abbrev_tac ‘evaluate (cSt1 with clock := _) cEnvAT1 _’ >>
               qmatch_goalsub_abbrev_tac ‘evaluate (cSt2 with clock := _) cEnvAT2 _’ >>
-              JSPECL_THEN [‘cEnvAT1’, ‘conf’, ‘DROP n ha_s’, ‘cVD1’,‘Var (Short "x")’,
+              qspecl_then [‘cEnvAT1’, ‘conf’, ‘DROP n ha_s’, ‘cVD1’,‘Var (Short "x")’,
                            ‘cSt1’,‘cSt1’,‘[]’] strip_assume_tac padv_correct >>
               ‘env_asm cEnvAT1 conf’
                 by (fs[Abbr ‘cEnvAT1’,env_asm_def,in_module_def,has_v_def] >>
@@ -2277,7 +2265,7 @@ Proof
               qpat_x_assum ‘∀extra. evaluate _ _ _ = _’ (K ALL_TAC) >>
               unite_nums "dc1" >>
               unite_nums "dc2" >>
-              JSPECL_THEN [‘cEnvAT2’, ‘conf’, ‘DROP n ha_s’, ‘cVD2’,‘Var (Short "x")’,
+              qspecl_then [‘cEnvAT2’, ‘conf’, ‘DROP n ha_s’, ‘cVD2’,‘Var (Short "x")’,
                            ‘cSt2’,‘cSt2’,‘[]’] strip_assume_tac padv_correct >>
               ‘env_asm cEnvAT2 conf’
                 by (fs[Abbr ‘cEnvAT2’,env_asm_def,in_module_def,has_v_def] >>
@@ -2386,12 +2374,12 @@ Proof
         by (qunabbrev_tac ‘Eexp’ >> irule ck_equiv_hol_apply_list_word8_equality >>
             fs[]) >>
       rw eval_sl >>
-      drule_then (JSPEC_THEN ‘cSt1’ strip_assume_tac) ck_equiv_hol_apply >>
+      drule_then (qspec_then ‘cSt1’ strip_assume_tac) ck_equiv_hol_apply >>
       Q.REFINE_EXISTS_TAC ‘bc1 + mc’ >>
       simp[] >>
       qpat_x_assum ‘∀dc. evaluate _ _ _ = _’ (K ALL_TAC) >>
       qmatch_goalsub_rename_tac ‘evaluate (cSt2 with clock := dcA + _) _ [_]’ >>
-      drule_then (JSPEC_THEN ‘cSt2’ strip_assume_tac) ck_equiv_hol_apply >>
+      drule_then (qspec_then ‘cSt2’ strip_assume_tac) ck_equiv_hol_apply >>
       Q.REFINE_EXISTS_TAC ‘bc1 + mc’ >>
       simp[] >>
       qpat_x_assum ‘∀dc. evaluate _ _ _ = _’ (K ALL_TAC) >>
@@ -2410,7 +2398,7 @@ Proof
       qpat_x_assum ‘∀conf cpNum cEnv pSt vs cSt1 cSt1.
                       cpEval_valid _ _ _ _ pCdG _ _ ∧ _ ⇒
                       ∃mc. _’
-                  (JSPECL_THEN [‘conf’,‘cpNum’,‘cEnv’,‘pSt’,
+                  (qspecl_then [‘conf’,‘cpNum’,‘cEnv’,‘pSt’,
                                 ‘nvs’,‘cSt1A’,‘cSt2A’]
                                 strip_assume_tac) >>
       ‘ffi_eq conf cSt1A.ffi.ffi_state cSt2A.ffi.ffi_state’
@@ -2451,10 +2439,10 @@ Proof
                     metis_tac[])
                 )
             ) >>
-      JSPECL_THEN [‘fexp’,‘f’,‘aexp’,‘MAP (THE o FLOOKUP pSt.bindings) l’,‘LIST_TYPE ^DATUM’,
+      qspecl_then [‘fexp’,‘f’,‘aexp’,‘MAP (THE o FLOOKUP pSt.bindings) l’,‘LIST_TYPE ^DATUM’,
                    ‘^DATUM’,‘cEnv’] strip_assume_tac ck_equiv_hol_App >>
       rfs[] >>
-      drule_then (JSPEC_THEN ‘cSt2’ strip_assume_tac) ck_equiv_hol_apply >>
+      drule_then (qspec_then ‘cSt2’ strip_assume_tac) ck_equiv_hol_apply >>
       rename1 ‘∀dc.
                 evaluate (cSt2 with clock := bc1_2 + dc) cEnv
                   [App Opapp [fexp; aexp]] =
@@ -2462,7 +2450,7 @@ Proof
                  Rval [cV_2])’ >>
       Q.REFINE_EXISTS_TAC ‘bc1_2 + mc’ >> simp[] >>
       first_x_assum (K ALL_TAC) >>
-      drule_then (JSPEC_THEN ‘cSt1’ strip_assume_tac) ck_equiv_hol_apply >>
+      drule_then (qspec_then ‘cSt1’ strip_assume_tac) ck_equiv_hol_apply >>
       rename1 ‘∀dc.
                 evaluate (cSt1 with clock := bc1_1 + dc) cEnv
                   [App Opapp [fexp; aexp]] =
@@ -2481,7 +2469,7 @@ Proof
       qunabbrev_tac ‘aexp’ >> qunabbrev_tac ‘fexp’ >>
       qmatch_goalsub_abbrev_tac ‘cEnvM:v sem_env’ >>
       qmatch_asmsub_abbrev_tac ‘^DATUM haf cV’ >>
-      first_x_assum (JSPECL_THEN [‘conf’,‘cpNum’,‘cEnvM’,
+      first_x_assum (qspecl_then [‘conf’,‘cpNum’,‘cEnvM’,
                                   ‘pSt with bindings := pSt.bindings |+ (s,haf)’,
                                   ‘tl’,‘cSt1 with refs := cSt1.refs ++ drefs_1’,
                                   ‘cSt2 with refs := cSt2.refs ++ drefs_2’]
@@ -2564,6 +2552,22 @@ Proof
       qexists_tac ‘mc’ >>
       irule clock_irrel >>
       simp[])
+QED
+
+Theorem forward_correctness:
+  ∀conf p pSt1 pCd1 L pSt2 pCd2
+        vs1 cEnv1 cSt1 vs2 cEnv2 cSt2.
+    trans conf (NEndpoint p pSt1 pCd1) L (NEndpoint p pSt2 pCd2) ∧
+    cpEval_valid conf p cEnv1 pSt1 pCd1 vs1 cSt1 ∧
+    cpEval_valid conf p cEnv2 pSt2 pCd2 vs2 cSt2 ∧
+    cpFFI_valid conf pSt1 pSt2 cSt1.ffi.ffi_state cSt2.ffi.ffi_state L ⇒
+    ∃mc. cEval_equiv conf
+          (evaluate (cSt1 with clock := mc) cEnv1
+                    [compile_endpoint conf vs1 pCd1])
+          (evaluate (cSt2 with clock := mc) cEnv2
+                    [compile_endpoint conf vs2 pCd2])
+Proof
+  cheat
 QED
 
 

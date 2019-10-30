@@ -9,22 +9,6 @@ open evaluate_toolsTheory
 
 val _ = new_theory "ckExp_Equiv";
 
-(* Helper Specialisation code *)
-val JSPEC_THEN =
-  fn spTr => fn nxTc => fn spTh => 
-    FIRST[qspec_then spTr nxTc spTh,Q.ISPEC_THEN spTr nxTc spTh];
-
-fun JSPECL_THEN []            = (fn nxTc => (fn spTh => nxTc spTh))
-  | JSPECL_THEN (spTr::spTrs) =
-    (fn nxTc =>
-      (fn spTh =>
-        let
-          val recFunc = (JSPECL_THEN spTrs nxTc)
-        in
-          JSPEC_THEN spTr recFunc spTh
-        end)
-    ); 
-
 val WORD8 = “WORD:word8 -> v -> bool”;
 
 
@@ -84,7 +68,7 @@ Proof
                                                 refs := arefs ++ drefs_a|>,
                              Rval [cVal_a])’
     by (rpt strip_tac >>
-        JSPECL_THEN [‘empty_state with <|clock := bc1_a;
+        qspecl_then [‘empty_state with <|clock := bc1_a;
                                          refs := arefs|>’,
                      ‘cEnv’, ‘[aexp]’,
                      ‘empty_state with <|clock := bc2_a;
@@ -110,7 +94,7 @@ Proof
                                          refs  := arefs ++ drefs_a ++ drefs_f|>,
                       Rval [cVal_f])’
     by (rpt strip_tac >>
-        JSPECL_THEN [‘empty_state with <|clock := bc1_f;
+        qspecl_then [‘empty_state with <|clock := bc1_f;
                                          refs := arefs ++ drefs_a|>’,
                      ‘cEnv’, ‘[fexp]’,
                      ‘empty_state with <|clock := bc2_f;
@@ -120,7 +104,7 @@ Proof
         rfs[]) >>
   rfs[] >>
   ntac 2 (first_x_assum (K ALL_TAC)) >>
-  JSPECL_THEN [‘cVal_f’,‘hf’,‘ha’,‘cVal_a’,‘tA’,‘tB’,
+  qspecl_then [‘cVal_f’,‘hf’,‘ha’,‘cVal_a’,‘tA’,‘tB’,
                ‘empty_state with <|refs := arefs ++ drefs_a ++ drefs_f|>’]
   strip_assume_tac do_opapp_translate >>
   rfs[] >>
@@ -169,7 +153,7 @@ Theorem ck_equiv_hol_apply_alt:
                     Rval [cV])
 Proof
   rw[] >>
-  drule_then (JSPEC_THEN ‘cSt’ strip_assume_tac) ck_equiv_hol_apply >>
+  drule_then (qspec_then ‘cSt’ strip_assume_tac) ck_equiv_hol_apply >>
   MAP_EVERY qexists_tac [‘bc1’,‘bc2’,‘drefs’,‘cV’] >>
   simp[]
 QED
@@ -244,7 +228,7 @@ Proof
   simp trans_sl >>
   CONV_TAC (RESORT_EXISTS_CONV rev) >>
   qmatch_goalsub_abbrev_tac ‘evaluate (cSt with clock := _) _ _’ >>
-  JSPECL_THEN [‘cEnv’,‘LIST_TYPE ^WORD8’,‘bexp’,‘hB’,‘cSt’]
+  qspecl_then [‘cEnv’,‘LIST_TYPE ^WORD8’,‘bexp’,‘hB’,‘cSt’]
               strip_assume_tac ck_equiv_hol_apply_alt >>
   rfs[] >>
   Q.REFINE_EXISTS_TAC ‘bc1 + r1’ >>
@@ -253,7 +237,7 @@ Proof
   qunabbrev_tac ‘cSt’ >>
   simp [] >>
   qmatch_goalsub_abbrev_tac ‘evaluate (cSt with clock := _) _ _’ >>
-  JSPECL_THEN [‘cEnv’,‘LIST_TYPE ^WORD8’,‘aexp’,‘hA’,‘cSt’]
+  qspecl_then [‘cEnv’,‘LIST_TYPE ^WORD8’,‘aexp’,‘hA’,‘cSt’]
               strip_assume_tac ck_equiv_hol_apply_alt >>
   rfs[] >>
   Q.REFINE_EXISTS_TAC ‘bc1 + r1’ >>
@@ -309,7 +293,7 @@ Proof
   rpt strip_tac >>
   rw[evaluate_def] >>
   qpat_x_assum ‘ck_equiv_hol cEnv hT aexp hA’ assume_tac >>
-  drule_then (JSPEC_THEN ‘cSt’ strip_assume_tac) ck_equiv_hol_apply >>
+  drule_then (qspec_then ‘cSt’ strip_assume_tac) ck_equiv_hol_apply >>
   rename1 ‘∀dc.
             evaluate (cSt with clock := bc1_a + dc) cEnv [aexp] =
             (cSt with <|clock := dc + bc2_a; refs := cSt.refs ++ drefs_a|>,
