@@ -1,4 +1,4 @@
-FROM agomezl/cakeml
+FROM CakeML/cakeml
 
 RUN mkdir bakery/
 COPY --chown=cake . bakery/

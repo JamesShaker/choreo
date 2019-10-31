@@ -1,6 +1,5 @@
 # Bakery : Payload to CakeML Compilation
 
-[![Build Status](https://travis-ci.org/JamesShaker/choreo.svg?branch=master)](https://travis-ci.org/JamesShaker/choreo)
 ## Table of Contents
 1. [Repo Overview](#repo-overview)
 	1. [What is this repo?](#what-is-this-repo)
@@ -82,22 +81,22 @@ quite buggy. I rectified many issues.
 ### Automation Tools and Theorems
 I made these to assist in my intircate proofs involving the complex
 CakeML semantics.
-#### `lib_tools/state_tacticLib.sml`
+#### `proofs/lib_tools/state_tacticLib.sml`
 Often extra values needed to be added to the `clock` in CakeML semantics
 manual evaluation to ensure no timeout. This addition of fuel causes expressions
 to blow up into long chains of addition as more steps are taken. Here
 we define the `unite_nums` tactic. Given a string it tries to reduce the first
 list of right-associated added free variables it finds in the goal.
-#### `lib_tools/evaluate_rwLib.sml`
+#### `proofs/lib_tools/evaluate_rwLib.sml`
 Rewrite lists combining all relevant CakeML functions to run semantics as
 far as possible either in its entirety, without function application, or without
 FFI.
-#### `theory_tools/evaluate_toolsScript.sml`
+#### `proofs/theory_tools/evaluate_toolsScript.sml`
 Some low-level theorems. `evaluate_generalise` allows results for
 evaluation in the `empty_state` to be used in more complex states with
 extra fuel. `do_opapp_translate` is designed to allow function application
 of translated functions to be performed in any state with some ease.
-#### `theory_tools/ckExp_EquivScript.sml`
+#### `proofs/theory_tools/ckExp_EquivScript.sml`
 We define an entire framework for CakeML AST to HOL equivalence with
 tools for building equivalence statements about more complex expressions
 from simpler ones. Also includes different ways equivalence can be applied to reduce
@@ -105,32 +104,70 @@ evaluation. Built on top of the basic HOL/CakeML translation framework.
 
 ### FFI Modelling and Proofs
 This is the most complex section and built from scratch.
-#### `ffi/bisimulation_extScript.sml`
+#### `proofs/ffi/bisimulation_extScript.sml`
 In here I define an alternative formulation of the bisimulation relation
 based on a coinductive relation called `bi`. We prove it equal and we also
 prove that the bisimulation relation is an equivalence. This will hopefully
 be PRd into the main HOL repo at some point. It allow proofs involving bisimulation
 to exploit coinduction.
-#### `ffi/confluenceScript.sml`
+#### `proofs/ffi/confluenceScript.sml`
 We define a set of general theorems regarding how different variations on the diamond
 property relate. In particular we are interested in reflexive closures, and reflexive,
 transitive closure variants.
-#### `ffi/payloadPropsScript.sml`
+#### `proofs/ffi/payloadPropsScript.sml`
 This is a long complex theory. In it we prove reflexive closure confluence for
 the `trans` Payload small-step semantics. There are around 60 cases considered in various
 proofs and the file totals over 1600 lines.
-#### `ffi/comms_ffi_modelScript.sml`
+#### `proofs/ffi/comms_ffi_modelScript.sml`
 Here we define the `total_state` type to model FFI, the `strans` system
 around it, and the `comms_ffi_oracle` to provide an interface. This model
 is built on top of the Payload `trans` model.
-#### `ffi/comms_ffi_consScript.sml`
-In this theory I devise simpler transition steps to those in `strans`. I
+#### `proofs/ffi/comms_ffi_consScript.sml`
+In this theory I devise simpler transition steps (`active_trans`,
+`internal_trans`, `input_trans`, and `output_trans`) to those in `strans`. I
 prove that these smaller steps can be combined to produce `strans` step
 and that every `strans` step can be reduced to these smaller steps. This
 construction and deconstruction framework is used extensively in all the
 other FFI proofs
-#### `ffi/comms_ffi_propsScript.sml`
-Here I define a number of useful properties and proofs. 
-
+#### `proofs/ffi/comms_ffi_propsScript.sml`
+This contains a large set of proofs and properties around
+the `strans` transition that are varied. Notions of states
+being able to `send` or `receive` as well as well-formedness 
+are included.
+#### `proofs/ffi/comms_ffi_commScript.sml`
+I prove that the RTC of `active_trans` and the RTC of `internal_trans`
+(we use RTC to indicate the reflexive and transitive closure)
+both have the diamond property with `input_trans` and `output_trans`.
+This is built off `payloadPropScript.sml` confluence results for
+`trans`. I then go to use these results to show that
+`strans` holds the diamond property with the RTC of `active_trans`
+and the RTC of `internal_trans`.
+#### `proofs/ffi/comms_ffi_eqScript.sml`
+Here I define `ffi_eq` to give a notion of equivalence on
+FFI states based on bisimulation. I then show that two
+equivalent states must remain equivalent if they pass through
+the same `strans` transition. This is a complex proof involving
+deconstruction (`comms_ffi_consScript` tools), followed
+by proving that states before
+and after `active_trans` and `internal_trans` steps
+are equivalent (using coinduction from `bisimulation_extScript`,
+followed by `strans` commutativity from `comms_ffi_commScript`),
+and finally proofs that `input_trans` or `output_trans` steps
+taken identically from two equivalent states preserve equality
+(`comms_ffi_consScript` tools and commutativity results
+from `comms_ffi_commScript`). We show certain send and receive
+properties are the same for equivalent states.
 
 ### Compilation Correctness Proofs
+#### `proofs/payload_to_cakemlProofScript.sml`
+Here the main proofs around correctness are done.
+Highlights of my contributions are `receiveloop_correct`,
+four out of five cases proven in `ffi_irrel`, and the specification 
+for forward correctness in `forward_correctness`. The
+`ffi_irrel` lemma, I suggest, contains most of the work that will
+be needed in the `forward_correctness` proof. It says that compiled
+Payload code run under two coherent CakeML states with equivalent FFI
+result in equivalent ouput. Notions of 'correspondence', 'validity',
+and 'equivalence' connecting Payload code and states, CakeML code and states,
+and Payload transitions are all defined and referred to in this file.
+
