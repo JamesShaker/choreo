@@ -48,7 +48,7 @@ Here is a summary of my contributions:
 * Refinement and correction of the project’s initial (buggy) compilation function (written by others)
 * Production of an FFI model of communication and networks within the CakeML semantics framework
 * Development of a model of correctness to reconcile Payload’s concurrent small- step semantics and CakeML’s sequential functional big-step semantics
-* Development of theorem proving technology for automation of proofs involv- ing CakeML semantics
+* Development of theorem proving technology for automation of proofs involving CakeML semantics
 * Foundational proofs:
     * Correctness of send and receive primitives
     * Many FFI confluence/commutativity proofs
