@@ -11,7 +11,69 @@ val _ = new_theory "ckExp_Equiv";
 
 val WORD8 = “WORD:word8 -> v -> bool”;
 
+(* UNIQUE CORRECT TRANSLATION FRAMEWORK *)
+(* Basic Injective HOL, CakeML mapping constraint
+   (Unique Correct Translation *)
+Definition UNCT_def:
+  UNCT (tf:α -> v -> bool) = ∀(a:α) (v1 v2:v). tf a v1 ∧ tf a v2 ⇒ v1 = v2
+End
 
+(* Preexistent UNCT maps *)
+Theorem INT_UNCT:
+  UNCT INT
+Proof
+  rw[UNCT_def,INT_def] 
+QED
+
+Theorem NUM_UNCT:
+  UNCT NUM
+Proof
+  rw[UNCT_def,NUM_def,INT_def] 
+QED
+
+Theorem BOOL_UNCT:
+  UNCT BOOL
+Proof
+  rw[UNCT_def,BOOL_def]
+QED
+
+Theorem WORD_UNCT:
+  UNCT WORD
+Proof
+  rw[UNCT_def,WORD_def]
+QED
+
+Theorem CHAR_UNCT:
+  UNCT CHAR
+Proof
+  rw[UNCT_def,CHAR_def]
+QED
+
+Theorem STRING_TYPE_UNCT:
+  UNCT STRING_TYPE
+Proof
+  rw[UNCT_def] >>
+  Cases_on ‘a’ >>
+  fs[STRING_TYPE_def]
+QED
+
+(* -- List version of UNCT type is UNCT *)
+Theorem LIST_TYPE_UNCT:
+  ∀tf.
+    UNCT tf ⇒ UNCT (LIST_TYPE tf)
+Proof
+  simp[UNCT_def] >>
+  strip_tac >>
+  strip_tac >>
+  Induct_on ‘a’
+  >- rw[LIST_TYPE_def]
+  >- (rpt strip_tac >>
+      fs[LIST_TYPE_def] >>
+      metis_tac[])
+QED
+
+
+(* BASIC CAKEML EXP TO HOL EQUIVALENCE FRAMEWORK *)
 (* Basic Definition of CakeML Expression/HOL Term equivalence *)
 Definition ck_equiv_hol_def:
   ck_equiv_hol cEnv hT cExp hVal =
@@ -23,7 +85,83 @@ Definition ck_equiv_hol_def:
           Rval [cVal])
 End
 
+(* Methods of applying equivalence *)
+(* -- Application of equivalence to produce
+      equivalent result in arbtirary state *)
+Theorem ck_equiv_hol_apply:
+  ∀ cEnv hT cExp hV.
+    ck_equiv_hol cEnv hT cExp hV ⇒
+      ∀cSt.
+        ∃bc1 bc2 drefs cV.
+          hT hV cV ∧
+          ∀dc.
+            evaluate (cSt with clock := bc1 + dc) cEnv [cExp]
+            = (cSt with <|clock := dc + bc2;
+                          refs := cSt.refs ++ drefs|>,
+                      Rval [cV])
+Proof
+  rpt strip_tac >>
+  fs[ck_equiv_hol_def] >>
+  first_x_assum (qspec_then ‘cSt.refs’ strip_assume_tac) >>
+  MAP_EVERY qexists_tac [‘bc1’,‘bc2’,‘drefs’,‘cVal’] >>
+  simp[evaluate_generalise]
+QED
+
+(* -- Identical to original but quantifiers moved.
+      This is useful because if polymorphic theorems
+      (cSt can have any FFI model type) are introduced
+      in a HOL proof without being fully intialised they
+      are given arbitrary fixed types. So state is at
+      top to be specialised at the beginning. *)
+Theorem ck_equiv_hol_apply_alt:
+  ∀ cEnv hT cExp hV cSt.
+    ck_equiv_hol cEnv hT cExp hV ⇒
+      ∃bc1 bc2 drefs cV.
+        hT hV cV ∧
+        ∀dc.
+          evaluate (cSt with clock := bc1 + dc) cEnv [cExp]
+          = (cSt with <|clock := dc + bc2;
+                        refs := cSt.refs ++ drefs|>,
+                    Rval [cV])
+Proof
+  rw[] >>
+  drule_then (qspec_then ‘cSt’ strip_assume_tac) ck_equiv_hol_apply >>
+  MAP_EVERY qexists_tac [‘bc1’,‘bc2’,‘drefs’,‘cV’] >>
+  simp[]
+QED
+
+(* -- Swap Expression in Function argument with equivalent literal *)
+Theorem ck_equiv_hol_apply_lit_App:
+  ∀fexp aexp hT hA cEnv cL.
+    UNCT hT                      ∧
+    hT hA (Litv cL)              ∧
+    ck_equiv_hol cEnv hT aexp hA
+     ⇒
+    ∀cSt.
+        ∃mc1 mc2 drefs.
+          ∀dc.
+            evaluate (cSt with clock := mc1 + dc) cEnv [App Opapp [fexp;aexp]]
+            = evaluate (cSt with <|clock := mc2 + dc; refs := cSt.refs ++ drefs|>) cEnv
+              [App Opapp [fexp; Lit cL]]
+Proof
+  rpt strip_tac >>
+  rw[evaluate_def] >>
+  qpat_x_assum ‘ck_equiv_hol cEnv hT aexp hA’ assume_tac >>
+  drule_then (qspec_then ‘cSt’ strip_assume_tac) ck_equiv_hol_apply >>
+  rename1 ‘∀dc.
+            evaluate (cSt with clock := bc1_a + dc) cEnv [aexp] =
+            (cSt with <|clock := dc + bc2_a; refs := cSt.refs ++ drefs_a|>,
+             Rval [cV])’ >>
+  Q.REFINE_EXISTS_TAC ‘bc1_a + mc1’ >>
+  simp[] >>
+  MAP_EVERY qexists_tac [‘0’,‘bc2_a’,‘drefs_a’] >>
+  ‘Litv cL = cV’
+    suffices_by simp[] >>
+  metis_tac[UNCT_def]
+QED
+
 (* Methods of constructing equivalence *)
+(* -- Literals *)
 Theorem ck_equiv_hol_Lit:
   ∀hT cL cEnv hL.
     hT hL (Litv cL) ⇒
@@ -35,6 +173,7 @@ Proof
   rw[]
 QED
 
+(* -- Variables *)
 Theorem ck_equiv_hol_Var:
   ∀cEnv vid hT hV.
     (∃cV. nsLookup cEnv.v vid = SOME cV ∧
@@ -47,6 +186,7 @@ Proof
   rw[]
 QED
 
+(* -- Function Application *)
 Theorem ck_equiv_hol_App:
   ∀fexp hf aexp ha tA tB cEnv.
     ck_equiv_hol cEnv tA aexp ha          ∧
@@ -120,101 +260,7 @@ Proof
   rw[arithmeticTheory.ADD1,dec_clock_def]
 QED
 
-
-(* Apply equivalence to an evaluation *)
-Theorem ck_equiv_hol_apply:
-  ∀ cEnv hT cExp hV.
-    ck_equiv_hol cEnv hT cExp hV ⇒
-      ∀cSt.
-        ∃bc1 bc2 drefs cV.
-          hT hV cV ∧
-          ∀dc.
-            evaluate (cSt with clock := bc1 + dc) cEnv [cExp]
-            = (cSt with <|clock := dc + bc2;
-                          refs := cSt.refs ++ drefs|>,
-                      Rval [cV])
-Proof
-  rpt strip_tac >>
-  fs[ck_equiv_hol_def] >>
-  first_x_assum (qspec_then ‘cSt.refs’ strip_assume_tac) >>
-  MAP_EVERY qexists_tac [‘bc1’,‘bc2’,‘drefs’,‘cVal’] >>
-  simp[evaluate_generalise]
-QED
-
-Theorem ck_equiv_hol_apply_alt:
-  ∀ cEnv hT cExp hV cSt.
-    ck_equiv_hol cEnv hT cExp hV ⇒
-      ∃bc1 bc2 drefs cV.
-        hT hV cV ∧
-        ∀dc.
-          evaluate (cSt with clock := bc1 + dc) cEnv [cExp]
-          = (cSt with <|clock := dc + bc2;
-                        refs := cSt.refs ++ drefs|>,
-                    Rval [cV])
-Proof
-  rw[] >>
-  drule_then (qspec_then ‘cSt’ strip_assume_tac) ck_equiv_hol_apply >>
-  MAP_EVERY qexists_tac [‘bc1’,‘bc2’,‘drefs’,‘cV’] >>
-  simp[]
-QED
-
-(* Apply partial equivalence to evaluation of function *)
-Definition UNCT_def:
-  UNCT (tf:α -> v -> bool) = ∀(a:α) (v1 v2:v). tf a v1 ∧ tf a v2 ⇒ v1 = v2
-End
-
-Theorem INT_UNCT:
-  UNCT INT
-Proof
-  rw[UNCT_def,INT_def] 
-QED
-
-Theorem NUM_UNCT:
-  UNCT NUM
-Proof
-  rw[UNCT_def,NUM_def,INT_def] 
-QED
-
-Theorem BOOL_UNCT:
-  UNCT BOOL
-Proof
-  rw[UNCT_def,BOOL_def]
-QED
-
-Theorem WORD_UNCT:
-  UNCT WORD
-Proof
-  rw[UNCT_def,WORD_def]
-QED
-
-Theorem CHAR_UNCT:
-  UNCT CHAR
-Proof
-  rw[UNCT_def,CHAR_def]
-QED
-
-Theorem STRING_TYPE_UNCT:
-  UNCT STRING_TYPE
-Proof
-  rw[UNCT_def] >>
-  Cases_on ‘a’ >>
-  fs[STRING_TYPE_def]
-QED
-
-Theorem LIST_TYPE_UNCT:
-  ∀tf.
-    UNCT tf ⇒ UNCT (LIST_TYPE tf)
-Proof
-  simp[UNCT_def] >>
-  strip_tac >>
-  strip_tac >>
-  Induct_on ‘a’
-  >- rw[LIST_TYPE_def]
-  >- (rpt strip_tac >>
-      fs[LIST_TYPE_def] >>
-      metis_tac[])
-QED
-
+(* -- Equality of byte arrays/lists *)
 Theorem ck_equiv_hol_apply_list_word8_equality:
   ∀cEnv aexp hA bexp hB.
     ck_equiv_hol cEnv (LIST_TYPE ^WORD8) aexp hA ∧
@@ -276,37 +322,4 @@ Proof
           Cases_on ‘h = h'’ >> simp[]))
 QED
 
-
-Theorem ck_equiv_hol_apply_lit_App:
-  ∀fexp aexp hT hA cEnv cL.
-    UNCT hT                      ∧
-    hT hA (Litv cL)              ∧
-    ck_equiv_hol cEnv hT aexp hA
-     ⇒
-    ∀cSt.
-        ∃mc1 mc2 drefs.
-          ∀dc.
-            evaluate (cSt with clock := mc1 + dc) cEnv [App Opapp [fexp;aexp]]
-            = evaluate (cSt with <|clock := mc2 + dc; refs := cSt.refs ++ drefs|>) cEnv
-              [App Opapp [fexp; Lit cL]]
-Proof
-  rpt strip_tac >>
-  rw[evaluate_def] >>
-  qpat_x_assum ‘ck_equiv_hol cEnv hT aexp hA’ assume_tac >>
-  drule_then (qspec_then ‘cSt’ strip_assume_tac) ck_equiv_hol_apply >>
-  rename1 ‘∀dc.
-            evaluate (cSt with clock := bc1_a + dc) cEnv [aexp] =
-            (cSt with <|clock := dc + bc2_a; refs := cSt.refs ++ drefs_a|>,
-             Rval [cV])’ >>
-  Q.REFINE_EXISTS_TAC ‘bc1_a + mc1’ >>
-  simp[] >>
-  MAP_EVERY qexists_tac [‘0’,‘bc2_a’,‘drefs_a’] >>
-  ‘Litv cL = cV’
-    suffices_by simp[] >>
-  metis_tac[UNCT_def]
-QED
-
 val _ = export_theory()
-
-
-

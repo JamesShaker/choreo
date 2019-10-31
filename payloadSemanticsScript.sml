@@ -2,7 +2,7 @@ open preamble payloadLangTheory;
 
 val _ = new_theory "payloadSemantics";
 
-(* QUEUE MANAGEMENT FUNCTIONS *)
+(* QUEUE MANAGEMENT FUNCTIONS - My work*)
 Definition fget_def:
   fget fm dv k =
     case FLOOKUP fm k of
@@ -19,7 +19,7 @@ Definition qpush_def:
     qs |+ (sp,SNOC d (qlk qs sp))
 End
 
-(* MESSAGE PROTOCOL IMPLEMENTATION *)
+(* MESSAGE PROTOCOL IMPLEMENTATION - Others*)
 Definition pad_def:
   pad conf d =
   if LENGTH d = conf.payload_size then       
@@ -53,7 +53,7 @@ Definition intermediate_def:
 End
 
 
-(* PAYLOAD SEMANTICS *)
+(* PAYLOAD SEMANTICS - Originally others, modified by me*)
 Datatype:
  label = LSend proc datum proc
        | LReceive proc datum proc

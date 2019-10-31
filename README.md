@@ -1,6 +1,6 @@
 # Bakery : Payload to CakeML Compilation
 
-[![Build Status](https://travis-ci.org/CakeML/choreo.svg?branch=master)](https://travis-ci.org/CakeML/choreo)
+[![Build Status](https://travis-ci.org/JamesShaker/choreo.svg?branch=master)](https://travis-ci.org/JamesShaker/choreo)
 ## Table of Contents
 1. [Repo Overview](#repo-overview)
 	1. [What is this repo?](#what-is-this-repo)
@@ -57,7 +57,80 @@ Here is a summary of my contributions:
     * All but one case of FFI irrelevance to program execution
 
 ## Code Breakdown
+Here I describe what is in each file. Most
+of the 'Payload Syntax, Semantics, and Compilation' I was
+already provided and modified or fixed. On the other hand
+the 'Automation Tools and Theorems' and 'FFI Modelling and Proofs'
+I devised almost entirely from scratch. The 'Compilation Correctness Proofs'
+contain some elements produced by others, however I completed
+the bulk of the work.
 ### Payload Syntax, Semantics, and Compilation
+At the top level we have several files describing language models and
+compilation:
+#### `payloadLangScript.sml`
+Contains the type descriptions for Payload's AST, `endpoint`, and representation of state, `state`. Also has a `network` type to combine these into `NEndpoint`
+nodes or `NPar` two sub-`network`s together. Most of this was completed by others in the Bakery project, however I modified state with a new model for `queues`.
+#### `payloadSemanticsScript.sml`
+Contains Payload's small-step semantics in the
+`trans` inductive relation. Defines `label` and helper functions regarding the Payload
+message protocol to support `trans`.  Again, most of this was completed by others in the Bakery project, however I adjusted `trans` to support the new model of `queues`.
+#### `payload_to_cakemlScript.sml`
+Contains implementation of compilation in `compile_endpoint`
+function. This function and the helpers were all initially written by others but
+quite buggy. I rectified many issues. 
+
 ### Automation Tools and Theorems
+I made these to assist in my intircate proofs involving the complex
+CakeML semantics.
+#### `lib_tools/state_tacticLib.sml`
+Often extra values needed to be added to the `clock` in CakeML semantics
+manual evaluation to ensure no timeout. This addition of fuel causes expressions
+to blow up into long chains of addition as more steps are taken. Here
+we define the `unite_nums` tactic. Given a string it tries to reduce the first
+list of right-associated added free variables it finds in the goal.
+#### `lib_tools/evaluate_rwLib.sml`
+Rewrite lists combining all relevant CakeML functions to run semantics as
+far as possible either in its entirety, without function application, or without
+FFI.
+#### `theory_tools/evaluate_toolsScript.sml`
+Some low-level theorems. `evaluate_generalise` allows results for
+evaluation in the `empty_state` to be used in more complex states with
+extra fuel. `do_opapp_translate` is designed to allow function application
+of translated functions to be performed in any state with some ease.
+#### `theory_tools/ckExp_EquivScript.sml`
+We define an entire framework for CakeML AST to HOL equivalence with
+tools for building equivalence statements about more complex expressions
+from simpler ones. Also includes different ways equivalence can be applied to reduce
+evaluation. Built on top of the basic HOL/CakeML translation framework.
+
 ### FFI Modelling and Proofs
+This is the most complex section and built from scratch.
+#### `ffi/bisimulation_extScript.sml`
+In here I define an alternative formulation of the bisimulation relation
+based on a coinductive relation called `bi`. We prove it equal and we also
+prove that the bisimulation relation is an equivalence. This will hopefully
+be PRd into the main HOL repo at some point. It allow proofs involving bisimulation
+to exploit coinduction.
+#### `ffi/confluenceScript.sml`
+We define a set of general theorems regarding how different variations on the diamond
+property relate. In particular we are interested in reflexive closures, and reflexive,
+transitive closure variants.
+#### `ffi/payloadPropsScript.sml`
+This is a long complex theory. In it we prove reflexive closure confluence for
+the `trans` Payload small-step semantics. There are around 60 cases considered in various
+proofs and the file totals over 1600 lines.
+#### `ffi/comms_ffi_modelScript.sml`
+Here we define the `total_state` type to model FFI, the `strans` system
+around it, and the `comms_ffi_oracle` to provide an interface. This model
+is built on top of the Payload `trans` model.
+#### `ffi/comms_ffi_consScript.sml`
+In this theory I devise simpler transition steps to those in `strans`. I
+prove that these smaller steps can be combined to produce `strans` step
+and that every `strans` step can be reduced to these smaller steps. This
+construction and deconstruction framework is used extensively in all the
+other FFI proofs
+#### `ffi/comms_ffi_propsScript.sml`
+Here I define a number of useful properties and proofs. 
+
+
 ### Compilation Correctness Proofs

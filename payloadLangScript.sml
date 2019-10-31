@@ -3,7 +3,8 @@ open preamble
 val _ = new_theory "payloadLang";
 
 
-(* PAYLOAD SYNTAX *)
+(* PAYLOAD SYNTAX AND STATE
+   - Originally made by others, modified by me (queues)*)
 Type varN = “: string”;
 
 Type proc = “: word8 list”;
@@ -31,7 +32,8 @@ Datatype:
           | NEndpoint proc state endpoint
 End
 
-(* Config type - used in Payload semantics and in CakeML *)
+(* Config type - used in Payload semantics and in CakeML
+    - Originally made by others, modified by me *)
 Datatype:
   config = <| payload_size : num;
               length : (modN,varN) id;
