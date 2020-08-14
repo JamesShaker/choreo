@@ -1,5 +1,5 @@
 # Bakery : Payload to CakeML Compilation
-
+**NOTE:** This repo has been archived as a snapshot of my submitted work. For later progress made by both myself and others on Bakery see CakeML/choreo.
 ## Table of Contents
 1. [Repo Overview](#repo-overview)
 	1. [What is this repo?](#what-is-this-repo)
